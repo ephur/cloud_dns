@@ -2,7 +2,6 @@ Cloud DNS Tool
 =========
 A script to make working with Cloud DNS quicker
 
-
 ## Requires
 PyRax -- PIP Installed Rackspace Python LIB for interacting with cloud services
 KeyCzar -- Optional, if storing encrypted credentials/values
@@ -10,13 +9,13 @@ KeyCzar -- Optional, if storing encrypted credentials/values
 ## Configuration File
 All configuration options can be passed on the command line, but a configuration file will make things easier.
 
-```
+``
 [cloud_dns]
 tenant = Tenant/DDI
 username = Username with access to tenant/ID
 apikey = APIKey for the Username
 keypath = Optional Value if keyczar is installed, you wish to encrypt items in the config file
-```
+``
 
 ## Using KeyCzar
 These are all done after a pip install of keyczar, or using OS packages to install (preferred on Debian/RHEL)
