@@ -84,6 +84,7 @@ optional arguments:
   -v, --version         show program's version number and exit
 
 This program makes changes to the production DNS systems.Please exercise
-extreme caution when making changes to DNS ```
+extreme caution when making changes to DNS
+```
 
 ...
