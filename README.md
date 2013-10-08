@@ -40,7 +40,7 @@ keyczart addkey --location=${KEYPATH} --status=primary
 ./crypt_string.py ${KEYPATH}
 Password:
 Note, the beginning and ending COLON are not part of your crypted string
-The crypted string is :ADQZJPu-ovb-lAdCuXyeixsoBBXYTmuGiLRy6Zn3IhOF2YOQ8cjru3-b5xithoVhignLRyKX_w8b:
+The crypted string is :abunchofjunk:
 ```
 
 ## How To use the tool
