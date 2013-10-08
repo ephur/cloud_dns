@@ -9,33 +9,44 @@ KeyCzar -- Optional, if storing encrypted credentials/values
 ## Configuration File
 All configuration options can be passed on the command line, but a configuration file will make things easier.
 
-``
+```
 [cloud_dns]
 tenant = Tenant/DDI
 username = Username with access to tenant/ID
 apikey = APIKey for the Username
 keypath = Optional Value if keyczar is installed, you wish to encrypt items in the config file
-``
+```
 
 ## Using KeyCzar
 These are all done after a pip install of keyczar, or using OS packages to install (preferred on Debian/RHEL)
 * Choose a path for keys, this is what keypath in the config file will be set to
-`` export KEYPATH="/Users/ephur/Projects/CloudServers/src/cloud_dns/etc/keys" ``
+```
+export KEYPATH="/Users/ephur/Projects/CloudServers/src/cloud_dns/etc/keys"
+```
 * Make the directory
-`` mkdir -p ${KEYPATH} ``
+```
+mkdir -p ${KEYPATH}
+```
 * Create the keystore
-`` keyczart create --location=${KEYPATH} --purpose=crypt --name="cloud_dns" ``
+```
+keyczart create --location=${KEYPATH} --purpose=crypt --name="cloud_dns"
+```
 * Create a key
-`` keyczart addkey --location=${KEYPATH} --status=primary ``
+```
+keyczart addkey --location=${KEYPATH} --status=primary
+```
 * Then you can use the included script to encrypt your config values:
-`` python ./crypt_string.py ${KEYPATH}
+```
+./crypt_string.py ${KEYPATH}
 Password:
 Note, the beginning and ending COLON are not part of your crypted string
-The crypted string is :ADQZJPu-ovb-lAdCuXyeixsoBBXYTmuGiLRy6Zn3IhOF2YOQ8cjru3-b5xithoVhignLRyKX_w8b: ``
+The crypted string is :ADQZJPu-ovb-lAdCuXyeixsoBBXYTmuGiLRy6Zn3IhOF2YOQ8cjru3-b5xithoVhignLRyKX_w8b:
+```
 
 ## How To use the tool
 * Basic usage
-`` ./dns.py --help
+```
+./dns.py --help
 usage: dns.py [-h] [-c CONFIG_FILE] [-k KEYPATH] [--tenant TENANT]
               [--username USERNAME] [--verbose] [--apikey APIKEY] [-v]
               {add_record,add_domain,list_records,delete_domain,list_domains}
@@ -73,4 +84,4 @@ optional arguments:
   -v, --version         show program's version number and exit
 
 This program makes changes to the production DNS systems.Please exercise
-extreme caution when making changes to DNS ``
+extreme caution when making changes to DNS ```
