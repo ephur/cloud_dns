@@ -36,6 +36,7 @@ keyczart create --location=${KEYPATH} --purpose=crypt --name="cloud_dns"
 keyczart addkey --location=${KEYPATH} --status=primary
 ```
 * Then you can use the included script to encrypt your config values:
+
 ```
 ./crypt_string.py ${KEYPATH}
 Password:
