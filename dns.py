@@ -13,6 +13,14 @@ try:
 except ImportError:
     KEYCZAR = False
 
+try:
+    import keyring
+    import getpass
+    import re
+    KEYRING = True
+except ImportError:
+    KEYRING = False
+
 
 PROG_DESCRIPTION="""A utility to simplify working with our DNS As A Service.
 Please keep in mind some operations take awhile to complete thanks to our
@@ -27,7 +35,10 @@ VERBOSE=False
 
 def main(*args, **kwargs):
     arg = args[0]
-    dns = dnsActions(arg.username, arg.apikey, arg.verbose)
+    try:
+        dns = dnsActions(arg.username, arg.apikey, arg.verbose)
+    except pyrax.exceptions.AuthenticationFailed:
+        print "ERROR Unable to authenticate, check your config/credentials"
     return getattr(dns, arg.action)(arg)
 
 def do_config():
@@ -40,6 +51,7 @@ def do_config():
     parser.add_argument("--username", help="Username to authenticate with. Can be specified in config file.", default=None)
     parser.add_argument("--verbose", help="more verbose output in random places!", action="store_true")
     parser.add_argument("--apikey", help="API key to use. Can be specified in config file, assumed encrypted if keypath specified", default=None )
+    parser.add_argument("--update-keychain", help="prompt to update keychain entries (if you're using them!)", action="store_true")
     parser.add_argument("-v","--version", action="version", version='%(prog)s ' + str(VERSION))
 
     subparsers = parser.add_subparsers(dest="action")
@@ -60,6 +72,10 @@ def do_config():
     parser_add_record.add_argument('-p','--priority', help='priority (for MX recrods only)')
     parser_add_record.add_argument('-c','--comment', help='comment associated with record')
 
+    parser_add_bulk = subparsers.add_parser('add_bulk', help="add a bunch of records")
+    parser_add_bulk.add_argument('record', help="record in the form of NAME:TYPE:TARGET (www.foo.com:A:192.168.1.100 wiki.foo.com:CNAME:www.foo.com)", nargs='*')
+    parser_add_bulk.add_argument('--from-file', help="read records from a file, in the same format, one record per line in the file")
+
     parser_list_records = subparsers.add_parser('list_records', help="list all records in a zone")
     parser_list_records.add_argument('domain', help='domain name(s) to list records for',nargs='*')
     parser_list_records.add_argument('--type', '-t', help="record type (CNAME/A), etc...")
@@ -70,6 +86,7 @@ def do_config():
     return main_validate(args)
 
 def main_validate(args):
+    # If a config file is specified, then get values from it
     if args.config_file is not None:
         config = ConfigParser.ConfigParser()
         try:
@@ -77,6 +94,7 @@ def main_validate(args):
         except IOError as e:
             raise IOError("Unable to read configuration file %s" % (args.config_file))
 
+    # Validate that required items are either in config file or on command line
     for item in ['username', 'apikey', 'tenant']:
         if getattr(args, item) is None:
             if args.config_file is None:
@@ -87,12 +105,35 @@ def main_validate(args):
                 except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
                     raise ValueError("%s not found in configuration file and option not specified" %(item))
 
+    # For the following values, see if they are stored in the system keyring, use those values if they are
+    for item in ['username', 'apikey', 'tenant']:
+        if getattr(args,item).upper().startswith("USE_KEYRING"):
+            try:
+                (appname, value) = re.findall('^USE_KEYRING\[\'(.*)\'\]$', getattr(args,item),re.IGNORECASE)[0].split(":")
+                if args.update_keychain is True:
+                    print "Updating %s in keychain %s:%s (leave blank to leave current value)" % (item.upper(), appname, value)
+                    retval = raw_input ("Enter value (WARNING INPUT IS ECHOED TO TERMINAL):")
+                    if retval != "":
+                        keyring.set_password(appname, value, retval)
+                retval = keyring.get_password(appname, value)
+                if retval is None:
+                    print "ERROR: Can't get %s from the keychain %s:%s" % (item.upper(), appname, value)
+                    retval = raw_input("Enter value to store in keychain (WARNING INPUT IS ECHOED TO TERMINAL):")
+                    keyring.set_password(appname, value, retval)
+                setattr(args, item, retval)
+
+            except (IndexError, ValueError) as e:
+                print "ERROR: Looks like you want to use the keyring, but don't have a proper value setup. The config item should look like: %s=USE_KEYRING['appname:value']" % (item)
+                sys.exit(1)
+
+    # Set the keypath argument if it's found in the config file
     if (args.keypath is None) and (args.config_file is not None):
         try:
             args.keypath = config.get("cloud_dns", "keypath")
         except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
             pass
 
+    # Finally decrypt any items that are stored encrypted
     if (args.keypath is not None) and (KEYCZAR is True):
         crypter = keyczar.Crypter.Read(args.keypath)
         for item in ['username', 'apikey', 'tenant']:
