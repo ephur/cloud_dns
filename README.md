@@ -44,7 +44,8 @@ The crypted string is :abunchofjunk:
 ```
 
 ## How To use the tool
-* Basic usage
+* Basic Usage
+
 ```
 ./dns.py --help
 usage: dns.py [-h] [-c CONFIG_FILE] [-k KEYPATH] [--tenant TENANT]
