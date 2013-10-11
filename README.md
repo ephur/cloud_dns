@@ -64,7 +64,7 @@ usage: dns.py [-h] [-c CONFIG_FILE] [-k KEYPATH] [--tenant TENANT]
               [--username USERNAME] [--verbose] [--apikey APIKEY]
               [--update-keychain] [-v]
 
-              {list_records,add_bulk,add_record,delete_domain,add_domain,list_domains}
+              {add_domain,delete_domain,list_domains,list_subdomains,add_record,add_bulk,list_records}
               ...
 
 A utility to simplify working with our DNS As A Service. Please keep in mind
@@ -74,10 +74,11 @@ Doing operations for all domains on the account can take a very long time when
 all domains have to be retrieved, one page of records at a time.
 
 positional arguments:
-  {list_records,add_bulk,add_record,delete_domain,add_domain,list_domains}
+  {add_domain,delete_domain,list_domains,list_subdomains,add_record,add_bulk,list_records}
     add_domain          add a domain to the DNS system
     delete_domain       remove a domain from the DNS system
     list_domains        list all domains on the account
+    list_subdomains     list the subdomains for a domain
     add_record          add a new record
     add_bulk            add a bunch of records
     list_records        list all records in a zone
