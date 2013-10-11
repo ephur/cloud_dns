@@ -57,11 +57,18 @@ def do_config():
     subparsers = parser.add_subparsers(dest="action")
     parser_add_domain = subparsers.add_parser('add_domain', help="add a domain to the DNS system")
     parser_add_domain.add_argument('domain', help='domain name to add')
+    parser_add_domain.add_argument('email_address', help='email addres to associate with domain')
+    parser_add_domain.add_argument('-t','--ttl', help='The TTL for the domain (Default 3600, Minimum 300')
+    parser_add_domain.add_argument('-c','--comment', help='A comment to store with the domain')
 
     parser_delete_domain = subparsers.add_parser('delete_domain', help="remove a domain from the DNS system")
     parser_delete_domain.add_argument('domain', help='domain name to delete')
+    parser_delete_domain.add_argument('-f', '--force', help="do not prompt for domain removal", action="store_true")
 
     parser_list_domains = subparsers.add_parser('list_domains', help="list all domains on the account")
+
+    parser_list_subdomains = subparsers.add_parser('list_subdomains', help="list the subdomains for a domain")
+    parser_list_subdomains.add_argument('domain', help='domain to list subdomains for')
 
     parser_add_record = subparsers.add_parser('add_record', help="add a new record")
     parser_add_record.add_argument('domain', help='domain to add record to')
@@ -155,6 +162,93 @@ class dnsActions:
 
         if self.domains is not None:
             return self
+
+    def delete_domain(self, *args):
+        arg = args[0]
+        try:
+            dom = self.dns.find(name=arg.domain)
+        except pyrax.exceptions.NotFound as e:
+            print "Domain %s not found" % (arg.domain)
+            return 0
+
+        if arg.force is True:
+            dom.delete()
+            print "Deleted %s" % (arg.domain)
+            return 0
+
+        records = dom.list_records()
+        if len(records) == 100:
+            rectxt = "This domain contains over 100 entries."
+        else:
+            rectxt = "This domain contains %d entries" % (len(records))
+
+        print "Foudnd domain %s, and ready to delete it."
+        print rectxt 
+        retval = raw_input("Type YES to delete: ").upper()
+        if retval == "YES":
+            dom.delete()
+            print "Deleted %s" %(arg.domain)
+        else:
+            print "Okay, so you got cold feet. Not deleting"
+
+        return 0 
+
+
+    def add_domain(self, *args):
+        arg = args[0]
+        fargs = dict()
+        try:
+            if int(arg.ttl) < 500:
+                arg.ttl = 500
+        except TypeError as e:
+            arg.ttl = 3600
+
+        fargs['ttl'] = arg.ttl
+        fargs['emailAddress'] = arg.email_address
+        fargs['name'] = arg.domain
+
+        try:
+            if arg.comment is not None:
+                fargs['comment'] = arg.comment
+        except AttributeError as e:
+            pass
+
+        try: 
+            if type(arg.subdomains) is dict:
+                fargs['subdomains'] = arg.subdomains
+        except AttributeError as e:
+            pass
+
+        try:
+            if type(arg.records) is dict:
+                fargs['records'] = arg.records
+        except AttributeError as e:
+            pass
+
+        try:
+            domain = self.dns.create(**fargs)
+            print "Created domain %s" % (domain.name)
+            print "\tID: %s" % (domain.id)
+            print "\tTTL: %d" % (domain.ttl)
+            print "\tEmail Address: %s" % (domain.emailAddress)
+            for ns in domain.nameservers:
+                print "\tNS Server: %s" %(ns['name'])
+        except pyrax.exceptions.DomainCreationFailed:
+            print "Can't add domain %s, it already exists." % (arg.domain)  
+    
+        return 0 
+
+    def list_subdomains(self, *args):
+        arg = args[0]
+        try:
+            domain_id = int(arg.domain)
+        except ValueError:
+            domain_id = self._get_domain_id(arg.domain)
+
+        subdomains = self.dns.list_subdomains(domain_id)
+        print "Subdomains for %s" % (arg.domain)
+        for item in subdomains:
+            print item
 
     def list_domains(self,*args):
         if self.domains is None:
