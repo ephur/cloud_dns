@@ -64,7 +64,7 @@ usage: dns.py [-h] [-c CONFIG_FILE] [-k KEYPATH] [--tenant TENANT]
               [--username USERNAME] [--verbose] [--apikey APIKEY]
               [--update-keychain] [-v]
 
-              {add_domain,delete_domain,list_domains,list_subdomains,add_record,add_bulk,list_records}
+              {add_domain,list_domains,list_subdomains,delete_domain,add_record,add_bulk,list_records}
               ...
 
 A utility to simplify working with our DNS As A Service. Please keep in mind
@@ -74,11 +74,11 @@ Doing operations for all domains on the account can take a very long time when
 all domains have to be retrieved, one page of records at a time.
 
 positional arguments:
-  {add_domain,delete_domain,list_domains,list_subdomains,add_record,add_bulk,list_records}
+  {add_domain,list_domains,list_subdomains,delete_domain,add_record,add_bulk,list_records}
     add_domain          add a domain to the DNS system
-    delete_domain       remove a domain from the DNS system
     list_domains        list all domains on the account
     list_subdomains     list the subdomains for a domain
+    delete_domain       remove a domain from the DNS system
     add_record          add a new record
     add_bulk            add a bunch of records
     list_records        list all records in a zone
@@ -87,7 +87,7 @@ optional arguments:
   -h, --help            show this help message and exit
   -c CONFIG_FILE, --config-file CONFIG_FILE
                         configuration file for dns script (default:
-                        config.ini)
+                        ~/.cloud_dns.ini) (default: None)
   -k KEYPATH, --keypath KEYPATH
                         path to keyczar keys if apikey is encrpyted, can be
                         specified in config file (default: None)
@@ -129,17 +129,26 @@ optional arguments:
 
 #### Bulk Adding Records 
 
+To add a lot of records use the add_bulk command, you can add as many records as you want. In the format of name,type,target. One item per line in a file and as many pairs on the command line as you like. The options ttl and priority apply to all records (if applicable) when creating them. If one record fails validation, NO records will be added.
+
 ```
-usage: dns.py add_bulk [-h] [--from-file FROM_FILE] [record [record ...]]
+usage: dns.py add_bulk [-h] [--from-file FROM_FILE] [-t TTL] [-p PRIORITY]
+                       domain [record [record ...]]
 
 positional arguments:
+  domain                domain to add record into
   record                record in the form of NAME:TYPE:TARGET
-                        (www.foo.com:A:192.168.1.100
-                        wiki.foo.com:CNAME:www.foo.com)
+                        (www.foo.com,A,192.168.1.100
+                        wiki.foo.com,CNAME,www.foo.com), specify as many as
+                        you want
 
 optional arguments:
   -h, --help            show this help message and exit
   --from-file FROM_FILE
                         read records from a file, in the same format, one
                         record per line in the file
+  -t TTL, --ttl TTL     the TTL for all records added, default is 3600,
+                        minimum is 300
+  -p PRIORITY, --priority PRIORITY
+                        priority for any MX records, default 10
 ```

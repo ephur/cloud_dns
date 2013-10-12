@@ -39,13 +39,14 @@ def main(*args, **kwargs):
         dns = dnsActions(arg.username, arg.apikey, arg.verbose)
     except pyrax.exceptions.AuthenticationFailed:
         print "ERROR Unable to authenticate, check your config/credentials"
+        return 1
     return getattr(dns, arg.action)(arg)
 
 def do_config():
     parser = argparse.ArgumentParser(description=PROG_DESCRIPTION,
                                      epilog=PROG_WARNING,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-c","--config-file", help="configuration file for dns script", type=str, default="config.ini")
+    parser.add_argument("-c","--config-file", help="configuration file for dns script (default: ~/.cloud_dns.ini)", type=str)
     parser.add_argument("-k","--keypath", help="path to keyczar keys if apikey is encrpyted, can be specified in config file", default=None)
     parser.add_argument("--tenant", help="Tenant (DDI) to operate on. Can be specified in config file.", default=None)
     parser.add_argument("--username", help="Username to authenticate with. Can be specified in config file.", default=None)
@@ -55,33 +56,37 @@ def do_config():
     parser.add_argument("-v","--version", action="version", version='%(prog)s ' + str(VERSION))
 
     subparsers = parser.add_subparsers(dest="action")
+
     parser_add_domain = subparsers.add_parser('add_domain', help="add a domain to the DNS system")
     parser_add_domain.add_argument('domain', help='domain name to add')
     parser_add_domain.add_argument('email_address', help='email addres to associate with domain')
     parser_add_domain.add_argument('-t','--ttl', help='The TTL for the domain (Default 3600, Minimum 300')
     parser_add_domain.add_argument('-c','--comment', help='A comment to store with the domain')
 
-    parser_delete_domain = subparsers.add_parser('delete_domain', help="remove a domain from the DNS system")
-    parser_delete_domain.add_argument('domain', help='domain name to delete')
-    parser_delete_domain.add_argument('-f', '--force', help="do not prompt for domain removal", action="store_true")
-
     parser_list_domains = subparsers.add_parser('list_domains', help="list all domains on the account")
 
     parser_list_subdomains = subparsers.add_parser('list_subdomains', help="list the subdomains for a domain")
     parser_list_subdomains.add_argument('domain', help='domain to list subdomains for')
+
+    parser_delete_domain = subparsers.add_parser('delete_domain', help="remove a domain from the DNS system")
+    parser_delete_domain.add_argument('domain', help='domain name to delete')
+    parser_delete_domain.add_argument('-f', '--force', help="do not prompt for domain removal", action="store_true")
 
     parser_add_record = subparsers.add_parser('add_record', help="add a new record")
     parser_add_record.add_argument('domain', help='domain to add record to')
     parser_add_record.add_argument('name', help='the fully qualifed DNS record/hostname')
     parser_add_record.add_argument('target', help='ip address')
     parser_add_record.add_argument('type', help='type of record')
-    parser_add_record.add_argument('-t','--ttl', help='ttl, default 300')
-    parser_add_record.add_argument('-p','--priority', help='priority (for MX recrods only)')
+    parser_add_record.add_argument('-t','--ttl', help='Time to Live for record, (default 3600, minimum 300')
+    parser_add_record.add_argument('-p','--priority', help='priority (for MX recrods only, default 10)')
     parser_add_record.add_argument('-c','--comment', help='comment associated with record')
 
     parser_add_bulk = subparsers.add_parser('add_bulk', help="add a bunch of records")
-    parser_add_bulk.add_argument('record', help="record in the form of NAME:TYPE:TARGET (www.foo.com:A:192.168.1.100 wiki.foo.com:CNAME:www.foo.com)", nargs='*')
+    parser_add_bulk.add_argument('domain', help="domain to add record into")
+    parser_add_bulk.add_argument('record', help="record in the form of NAME:TYPE:TARGET (www.foo.com,A,192.168.1.100 wiki.foo.com,CNAME,www.foo.com), specify as many as you want", nargs='*')
     parser_add_bulk.add_argument('--from-file', help="read records from a file, in the same format, one record per line in the file")
+    parser_add_bulk.add_argument('-t', '--ttl', help="the TTL for all records added, default is 3600, minimum is 300")
+    parser_add_bulk.add_argument('-p', '--priority', help="priority for any MX records, default 10")
 
     parser_list_records = subparsers.add_parser('list_records', help="list all records in a zone")
     parser_list_records.add_argument('domain', help='domain name(s) to list records for',nargs='*')
@@ -93,18 +98,31 @@ def do_config():
     return main_validate(args)
 
 def main_validate(args):
-    # If a config file is specified, then get values from it
-    if args.config_file is not None:
+    # Keep track if we loaded a config or not
+    loaded_config = False 
+
+    # Set a default config file
+    if args.config_file is None:
+        cpath = os.getenv("HOME") + "/.cloud_dns.ini"
+    else:
+        cpath = args.config_file
+ 
+    # Read the config file 
+    try:
         config = ConfigParser.ConfigParser()
-        try:
-            config.readfp(open(args.config_file))
-        except IOError as e:
-            raise IOError("Unable to read configuration file %s" % (args.config_file))
+        config.readfp(open(cpath))
+        loaded_config = True
+    except IOError as e:
+        if args.config_file is None:
+            pass
+        else:
+            print "Unable to read configuration file %s" % (args.config_file)
+            return 1
 
     # Validate that required items are either in config file or on command line
     for item in ['username', 'apikey', 'tenant']:
         if getattr(args, item) is None:
-            if args.config_file is None:
+            if loaded_config is False:
                 raise ValueError("Must specify %s option, or put it in a config file and specify config file"  %(item))
             else:
                 try:
@@ -134,7 +152,7 @@ def main_validate(args):
                 sys.exit(1)
 
     # Set the keypath argument if it's found in the config file
-    if (args.keypath is None) and (args.config_file is not None):
+    if (args.keypath is None) and (loaded_config is True):
         try:
             args.keypath = config.get("cloud_dns", "keypath")
         except (ConfigParser.NoOptionError, ConfigParser.NoSectionError) as e:
@@ -162,6 +180,112 @@ class dnsActions:
 
         if self.domains is not None:
             return self
+
+    def add_bulk(self, *args):
+        arg = args[0]
+        record_list = list()
+        # Get the domain records are being added to
+        try:
+            dom = self.dns.find(name=arg.domain)
+        except pyrax.exceptions.NotFound as e:
+            print "Domain %s not found" % (arg.domain)
+            return 1
+        # Ensure proper TTL's for the records
+        try:
+            if int(arg.ttl) < 300:
+                arg.ttl = 300
+        except TypeError as e:
+            arg.ttl = 3600
+
+        if arg.from_file is not None:
+            try:
+                f = open(arg.from_file)
+                for line in f:
+                    arg.record.append(line.rstrip())
+            except IOError as e:
+                print "Could not open input file %s: %s " %(arg.from_file, e.strerror)
+                return 1
+
+        for item in arg.record:
+            record = dict()
+            try:
+                (record['name'], record['type'], record['data']) = item.split(',')
+                record['type'] = record['type'].upper()
+            except ValueError:
+                print "Unable to process %s (format not right?)" % (item)
+                continue
+
+            record['ttl'] = arg.ttl
+
+            if record['type'] == "MX":
+                try:
+                    record['priority'] = int(arg.priority)
+                except (ValueError, TypeError) as e:
+                    record['priority'] = 10
+            record_list.append(record)
+
+        if len(record_list) == 0:
+            print "No records to add, use the command line or file to specify some"
+            return 1
+
+        self.dns.set_timeout(120)
+        try:
+            record = dom.add_record(record_list)
+        except pyrax.exceptions.DomainRecordAdditionFailed as e:
+            print "Could not add record:"
+            print e.message
+            return 1
+        except pyrax.exceptions.BadRequest as e:
+            print "Could not add record, record type is probably invalid, message from API is:"
+            print e.message
+            return 1
+        self.dns.set_timeout(5)
+
+        return 0
+
+
+    def add_record(self, *args):
+        arg = args[0]
+
+        try:
+            if int(arg.ttl) < 300:
+                arg.ttl = 300
+        except TypeError as e:
+            arg.ttl = 3600
+
+        try:
+            dom = self.dns.find(name=arg.domain)
+        except pyrax.exceptions.NotFound as e:
+            print "Domain %s not found" % (arg.domain)
+            return 1
+
+        record = dict()
+        record['type'] = arg.type    
+        record['name'] = arg.name
+        record['data'] = arg.target
+        record['type'] = arg.type.upper()
+        record['ttl'] = arg.ttl
+
+        if record['type'] == "MX":
+            try:
+                record['priority'] = int(arg.priority)
+            except (ValueError, TypeError) as e:
+                record['priority'] = 10
+
+        if arg.comment is not None:
+            record['comment'] = arg.comment
+
+        try:
+            record = dom.add_record([record])
+        except pyrax.exceptions.DomainRecordAdditionFailed as e:
+            print "Could not add record:"
+            print e.message
+            return 1
+        except pyrax.exceptions.BadRequest as e:
+            print "Could not add record, record type is probably invalid, message from API is:"
+            print e.message
+            return 1
+        return 0
 
     def delete_domain(self, *args):
         arg = args[0]
