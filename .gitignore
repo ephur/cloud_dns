@@ -1,0 +1,5 @@
+etc/keys/
+tmp/
+*.pyc
+NOTES
+.DS_Store
