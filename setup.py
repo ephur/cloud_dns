@@ -16,7 +16,7 @@ setup(
     license = "Apache 2.0",
     keywords = "rackspace cloud dns cli pyrax",
     install_requires = ['setuptools', 'pyrax>=1.6'],
-    long_description=read('README.md'),
+    long_description=read('README'),
     packages = find_packages('src'),
     package_dir = {'': 'src'}, 
     entry_points= { 'console_scripts': ['cloud_dns = cloud_dns_cli.cloud_dns_cli:console'] },
