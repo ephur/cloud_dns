@@ -6,6 +6,15 @@ A script to make working with Cloud DNS quicker
 PyRax -- PIP Installed Rackspace Python LIB for interacting with cloud services
 KeyCzar -- Optional, if storing encrypted credentials/values
 
+## Installing
+The install relies on setup tools. If you already have setup tools it's as easy as:
+
+```
+python ./setup.py install 
+``` 
+
+If not, you will need to add setup tools, there's a few ways to do it. Check out https://pypi.python.org/pypi/setuptools#installing-and-using-setuptools
+
 ## Configuration File
 All configuration options can be passed on the command line, but a configuration file will make things easier. If no configuration is specified on the command line (via the -c/--config-file) then $HOME/.cloud\_dns.ini will be used (if it exists!)
 
