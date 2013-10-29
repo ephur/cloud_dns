@@ -11,7 +11,7 @@ setup(
     version = VERSION,
     author = "Richard Maynard",
     author_email = "richard.maynard@gmail.com",
-    url = "https://github.com/ephur/cloud_dns"
+    url = "https://github.com/ephur/cloud_dns",
     description = ("A CLI Tool for interacting with RackSpace Cloud DNS"),
     license = "Apache 2.0",
     keywords = "rackspace cloud dns cli pyrax",
