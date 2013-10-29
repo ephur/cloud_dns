@@ -33,6 +33,9 @@ VERSION=0.1
 RECORD_TYPES=['PTR','A','AAAA','CNAME','TXT']
 VERBOSE=False
 
+def console():
+    sys.exit(main(do_config()))
+
 def main(*args, **kwargs):
     arg = args[0]
     try:
@@ -40,7 +43,7 @@ def main(*args, **kwargs):
     except pyrax.exceptions.AuthenticationFailed:
         print "ERROR Unable to authenticate, check your config/credentials"
         return 1
-    return getattr(dns, arg.action)(arg)
+    return(getattr(dns,arg.action)(arg))
 
 def do_config():
     parser = argparse.ArgumentParser(description=PROG_DESCRIPTION,
