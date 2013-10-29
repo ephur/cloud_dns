@@ -1,16 +1,17 @@
 import os
 from setuptools import setup, find_packages
 
-version = '0.9.01'
+VERSION = '0.9.01'
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(
     name = "cloud_dns_cli",
-    version = version, 
+    version = VERSION,
     author = "Richard Maynard",
     author_email = "richard.maynard@gmail.com",
+    url = "https://github.com/ephur/cloud_dns"
     description = ("A CLI Tool for interacting with RackSpace Cloud DNS"),
     license = "Apache 2.0",
     keywords = "rackspace cloud dns cli pyrax",
