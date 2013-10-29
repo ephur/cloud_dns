@@ -3,3 +3,6 @@ tmp/
 *.pyc
 NOTES
 .DS_Store
+build/
+dist/
+src/*egg-info
