@@ -33,6 +33,8 @@ VERSION=0.1
 RECORD_TYPES=['PTR','A','AAAA','CNAME','TXT']
 VERBOSE=False
 
+CHUNK_SIZE=20 # Number of records for batch operations
+
 def console():
     sys.exit(main(do_config()))
 
@@ -86,7 +88,7 @@ def do_config():
 
     parser_add_bulk = subparsers.add_parser('add_bulk', help="add a bunch of records")
     parser_add_bulk.add_argument('domain', help="domain to add record into")
-    parser_add_bulk.add_argument('record', help="record in the form of NAME:TYPE:TARGET (www.foo.com,A,192.168.1.100 wiki.foo.com,CNAME,www.foo.com), specify as many as you want", nargs='*')
+    parser_add_bulk.add_argument('record', help="record in the form of NAME,TYPE,TARGET (www.foo.com,A,192.168.1.100 wiki.foo.com,CNAME,www.foo.com), specify as many as you want", nargs='*')
     parser_add_bulk.add_argument('--from-file', help="read records from a file, in the same format, one record per line in the file")
     parser_add_bulk.add_argument('-t', '--ttl', help="the TTL for all records added, default is 3600, minimum is 300")
     parser_add_bulk.add_argument('-p', '--priority', help="priority for any MX records, default 10")
@@ -231,17 +233,39 @@ class dnsActions:
             print "No records to add, use the command line or file to specify some"
             return 1
 
-        self.dns.set_timeout(120)
-        try:
-            record = dom.add_record(record_list)
-        except pyrax.exceptions.DomainRecordAdditionFailed as e:
-            print "Could not add record:"
-            print e.message
-            return 1
-        except pyrax.exceptions.BadRequest as e:
-            print "Could not add record, record type is probably invalid, message from API is:"
-            print e.message
-            return 1
+        # Break the list into 100 record chunks
+        chunk_segment = 0 
+        chunk_list = list()
+        print "Adding %d records (in chunks of %d)" % (len(record_list), CHUNK_SIZE)
+        print "This operation can take several minutes per chunk, particularly in zones with many records. It is dependant on API performance."
+        while len (record_list) > 0:
+            try:
+                if len(chunk_list[chunk_segment]) == CHUNK_SIZE:
+                    chunk_segment += 1
+                    chunk_list.append(list())
+            except IndexError:
+                chunk_list.append(list())
+            chunk_list[chunk_segment].append(record_list.pop(0))
+
+        self.dns.set_timeout(300)
+        count = 0
+        for chunk in chunk_list:
+            count += 1
+            print "Adding chunk #%s" % (count)
+            try:
+                start_time = time.time()
+                record = dom.add_record(chunk)
+                stop_time = time.time()
+            except pyrax.exceptions.DomainRecordAdditionFailed as e:
+                print "Could not add record:"
+                print e.message
+                return 1
+            except pyrax.exceptions.BadRequest as e:
+                print "Could not add record, record type is probably invalid, message from API is:"
+                print e.message
+                return 1
+            print "-- Added chunk in %.2f seconds" % (stop_time - start_time)
+
         self.dns.set_timeout(5)
 
         return 0
@@ -263,7 +287,7 @@ class dnsActions:
             return 1
 
         record = dict()
-        record['type'] = arg.type    
+        record['type'] = arg.type
         record['name'] = arg.name
         record['data'] = arg.target
         record['type'] = arg.type.upper()
@@ -309,11 +333,14 @@ class dnsActions:
         else:
             rectxt = "This domain contains %d entries" % (len(records))
 
+
         print "Foudnd domain %s, and ready to delete it."
         print rectxt 
         retval = raw_input("Type YES to delete: ").upper()
         if retval == "YES":
+            self.dns.set_timeout(120)
             dom.delete()
+            self.dns.set_timeout(5)
             print "Deleted %s" %(arg.domain)
         else:
             print "Okay, so you got cold feet. Not deleting"
