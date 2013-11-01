@@ -32,6 +32,7 @@ Please exercise extreme caution when making changes to DNS"
 VERSION=0.1
 RECORD_TYPES=['PTR','A','AAAA','CNAME','TXT']
 VERBOSE=False
+DEBUG=False
 
 CHUNK_SIZE=20 # Number of records for batch operations
 
@@ -179,6 +180,7 @@ class dnsActions:
     def __init__(self, username, apikey, verbose):
         pyrax.set_setting("identity_type", "rackspace")
         pyrax.set_credentials(username, apikey)
+        pyrax.set_http_debug(DEBUG)
         self.dns = pyrax.cloud_dns
         self.verbose = verbose
         self.domains = None
@@ -255,7 +257,6 @@ class dnsActions:
             try:
                 start_time = time.time()
                 record = dom.add_record(chunk)
-                stop_time = time.time()
             except pyrax.exceptions.DomainRecordAdditionFailed as e:
                 print "Could not add record:"
                 print e.message
@@ -264,7 +265,17 @@ class dnsActions:
                 print "Could not add record, record type is probably invalid, message from API is:"
                 print e.message
                 return 1
-            print "-- Added chunk in %.2f seconds" % (stop_time - start_time)
+            except (TypeError, pyrax.exceptions.NotFound):
+                # This is a hack around a problem with the DNS API and the way PyRax
+                # handles API Async request tracking. Sometimes an unhandled error 
+                # bleeds up from PyRAX, so here resubmit the failed records 
+                # and 
+                try:
+                    print "-- Intercepted API error, retrying chunk, another error will kill me"
+                    record = dom.add_record(chunk)
+                except pyrax.exceptions.DomainRecordAdditionFailed as e:
+                    pass
+            print "-- Added chunk in %.2f seconds" % (time.time() - start_time)
 
         self.dns.set_timeout(5)
 
