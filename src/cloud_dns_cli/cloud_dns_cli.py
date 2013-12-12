@@ -296,13 +296,14 @@ class dnsActions:
             return 0
 
         try:
-            record = dom.find_record(arg.type, name=arg.record)
+            record = dom.search_records(arg.type, name=arg.record)
+            record = record[0]
         except pyrax.exceptions.DomainRecordNotFound as e:
             print "Record %s not found" % (arg.record)
             return 0
 
         if arg.force is True:
-            dom.delete_record(arg.record)
+            record.delete()
             print "Deleted %s" % (arg.record)
             return 0
 
