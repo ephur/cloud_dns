@@ -100,6 +100,12 @@ def do_config():
     parser_list_records.add_argument('--data', '-d', help='Data (IP4/IP6 or CNAME Destination to match)')
     parser_list_records.add_argument('--name', '-n', help='Name to match (or partial name to match)')
 
+    parser_delete_record = subparsers.add_parser('delete_record', help="remove a record from a domain in the DNS system")
+    parser_delete_record.add_argument('domain', help='domain to delete record from')
+    parser_delete_record.add_argument('record', help='record to delete in the form of NAME (www.foo.com)')
+    parser_delete_record.add_argument('type', help='type of record')
+    parser_delete_record.add_argument('-f', '--force', help="do not prompt for record removal", action="store_true")
+
     args = parser.parse_args()
     return main_validate(args)
 
@@ -278,6 +284,40 @@ class dnsActions:
             print "-- Added chunk in %.2f seconds" % (time.time() - start_time)
 
         self.dns.set_timeout(5)
+
+        return 0
+
+    def delete_record(self, *args):
+        arg = args[0]
+        try:
+            dom = self.dns.find(name=arg.domain)
+        except pyrax.exceptions.NotFound as e:
+            print "Domain %s not found" % (arg.domain)
+            return 0
+
+        try:
+            record = dom.search_records(arg.type, name=arg.record)
+            record = record[0]
+        except pyrax.exceptions.DomainRecordNotFound as e:
+            print "Record %s not found" % (arg.record)
+            return 0
+
+        if arg.force is True:
+            record.delete()
+            print "Deleted %s" % (arg.record)
+            return 0
+
+        print "Found record %s, of type %s, in domain %s, and ready to delete it." \
+            % (arg.record, arg.type, arg.domain)
+
+        retval = raw_input("Type YES to delete: ").upper()
+        if retval == "YES":
+            self.dns.set_timeout(120)
+            record.delete()
+            self.dns.set_timeout(5)
+            print "Deleted %s in %s" % (arg.record, arg.domain)
+        else:
+            print "Okay, so you got cold feet. Not deleting"
 
         return 0
 
